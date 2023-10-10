@@ -1,0 +1,201 @@
+---
+title: "md05demo"
+author: "Andrew Myerson"
+format: html
+editor: visual
+embed-resources: true
+---
+
+## In Class Practice 
+
+```{r}
+#| message: false
+library(tidyverse)
+library(moderndive)
+library(ggthemes)
+library(patchwork)
+theme_set(theme_light())
+```
+
+```{r}
+data(evals)
+glimpse(evals)
+```
+
+```{r}
+d <- evals |>
+  rename(bty = bty_avg,    # just shorter to type
+         sex = gender)     # actually what they have
+
+glimpse(d)
+```
+
+```{r}
+head(d)
+```
+
+```{r}
+library(skimr)
+skim(d)
+```
+
+```{r}
+summary(d)
+```
+
+Now let's look at the distribution of each variable score and bty.
+
+```{r}
+ggplot(d,
+       aes(x = score)) +
+  geom_histogram(boundary = 4,
+                 binwidth = .25,
+                 color = "white")
+
+ggplot(d,
+       aes(x = bty)) +
+  geom_histogram(boundary = 4,
+                 binwidth = .5,
+                 color = "white") +
+  scale_x_continuous(breaks = 2:9)
+```
+
+Now let's make a scatterplot with bty on the x-axis and score on the y-axis.
+
+```{r}
+ggplot(d,
+       aes(x = bty,
+           y = score)) +
+  geom_jitter(alpha = .3)
+```
+
+```{r}
+d |> get_correlation(score ~ bty)     # MD wrapper function (tibble)
+d |> select(score, bty) |> cor()      # base R version (matrix)
+```
+
+```{r}
+mod1 <- lm(score ~ bty,
+           data = d)
+
+get_regression_table(mod1)
+```
+
+Ignore every column in the table above but term and estimate.
+
+0.067 is the slope of the line, and 3.88 is the y-intercept (score when bty = 0)
+
+```{r}
+ggplot(d,
+       aes(x = bty,
+           y = score)) +
+  geom_jitter(alpha = .3) +
+  geom_smooth(method = "lm",     # does this look familiar?
+              se = FALSE)        # don't want to use "standard errors" for now
+```
+
+```{r}
+ggplot(d,
+       aes(x = bty,
+           y = score)) +
+  geom_jitter(alpha = .3) +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              fullrange = TRUE) +
+  scale_x_continuous(limits = c(0,8.5)) +
+  geom_vline(xintercept = 0,
+             color = "red",
+             linetype = "dotted")
+```
+
+```{r}
+p <- ggplot(d,
+       aes(x = bty,
+           y = score)) +
+  geom_jitter(alpha = .3)
+
+p + geom_abline(intercept = 3.88,
+                slope = .067,
+                color = "blue",
+                size = 1.5)
+```
+
+DOESN'T HAVE TO BE 2 NUMERICAL VARIABLES TO MAKE A REGRESSION LINE.
+
+```{r}
+ggplot(d,
+       aes(x = score,
+           y = sex)) +
+  geom_jitter(alpha = .3,
+              height = .2)
+```
+
+```{r}
+ggplot(d,
+       aes(x = score,
+           y = sex)) +
+  geom_boxplot(coef = 0,
+               outlier.alpha = 0,
+               width = .5) +
+  geom_jitter(alpha = .3,
+              height = .2) 
+```
+
+A categorical variable operates as a switch - yes or no, 0 or 1 - in the point estimator linear equation. y hat = int + slope(x) where x is the categorical variable, 0 or 1.
+
+```{r}
+2023-10-10-inclass.qmd
+```
+
+## Individual Practice
+
+```{r}
+a <- d |> 
+  filter(cls_students <= "320")
+```
+
+```{r}
+a |> get_correlation(score ~ cls_students)     # MD wrapper function (tibble)
+a |> select(score, cls_students) |> cor()    
+```
+
+```{r}
+practice <- lm(score ~ cls_students,
+           data = a)
+
+get_regression_table(practice)
+```
+
+```{r}
+ggplot(a,
+       aes(x = score,
+           y = cls_students)) +
+  geom_jitter(alpha = .3) +
+  geom_smooth(method = "lm",     # does this look familiar?
+              se = FALSE) 
+```
+
+**SUMMARY:**
+
+**When I eliminate the high outliers of cls_students, or any classes with 320 or more students, the correlation changes from positive (0.026) to negative (-0.086), as shown by the blue line being negative in the first graph above (without high outliers) and positive in the 2nd graph below (with high outliers). However, because both of these correlation values are very small, there is a weak linear relationship between number of students in the class and the score received by the professor, regardless of the adjustment made to take away the largest classes.**
+
+```{r}
+d |> get_correlation(score ~ cls_students)     # MD wrapper function (tibble)
+d |> select(score, cls_students) |> cor()  
+```
+
+```{r}
+practice2 <- lm(score ~ cls_students,
+           data = a)
+
+get_regression_table(practice2)
+```
+
+```{r}
+ggplot(d,
+       aes(x = score,
+           y = cls_students)) +
+  geom_jitter(alpha = .3) +
+  geom_smooth(method = "lm",     # does this look familiar?
+              se = FALSE) 
+```
