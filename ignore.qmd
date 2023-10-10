@@ -1,0 +1,31 @@
+---
+title: "md05demo"
+author: "Andrew Myerson"
+format: html
+editor: visual
+embed-resources: true
+---
+
+## In Class Practice 
+
+```{r}
+#| message: false
+library(tidyverse)
+library(moderndive)
+library(ggthemes)
+library(patchwork)
+theme_set(theme_light())
+```
+
+```{r}
+data(evals)
+glimpse(evals)
+```
+
+```{r}
+d <- evals |>
+  rename(bty = bty_avg,    # just shorter to type
+         sex = gender)     # actually what they have
+
+glimpse(d)
+```
