@@ -1,9 +1,0 @@
----
-title: "project-idea"
-author: "Andrew Myerson"
-format: html
-editor: visual
-embed-resources: true
----
-
-## 
