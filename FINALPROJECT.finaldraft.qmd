@@ -1,0 +1,290 @@
+---
+title: "FINAL PROJECT"
+author: "Andrew Myerson"
+format: html
+editor: visual
+embed-resources: true
+echo: false
+warning: false 
+message: false
+---
+
+## Final Project
+
+In the world of football, many people believe that left footed players are more talented than right footed players. Sparked by players like Lionel Messi and Diego Maradona, this widespread hypothesis that "lefties" are better on average compared to "righties" is valid for many of the best players of all time. But is this claim true across all players around the world, or is it simply a myth extrapolated from only the legends of the game?
+
+It is common knowledge that it is more common to be right footed than left footed, with recent studies saying that only 8.2% of the world's population is left-footed, but are people using this statistic to assume the rarity of being left footed makes a player more valuable? \[\^1\]
+
+To figure out if lefties are better than righties, we are going to analyze the validity of the claim (alternative hypothesis) that the mean market value of left footed players is greater than the mean market value of right footed players around the world. Instead of using goals scored or passes completed as our variable, we will be using the mean market value in euros because this is a better measure of the overall quality of a player that is consistent across all positions on the field; it is unfair to compare the number of goals scored by a defender to the amount scored by a forward.
+
+We have data from the big 5 leagues in Europe: the English Premier League in England, the Bundesliga in Germany, Ligue 1 in France, Serie A in Italy, and La Liga in Spain. This will be our sample, including 3395 players that are either left or right footed. The source of this data is the worldfootballR database and, more specifically, Transfermarkt.
+
+```{r}
+#/ message: false
+library(tidyverse) 
+library(worldfootballR)
+library(fivethirtyeight)
+library(infer)
+library(knitr)
+library(moderndive)
+devtools::install_github("JaseZiv/worldfootballR")
+```
+
+```{r}
+big_5_valuations <- tm_player_market_values(country_name = c("England", "Spain", "France", "Italy", "Germany"), start_year = 2020)
+```
+
+# **DATA WRANGLING**
+
+Let's consolidate our dataset from the big 5 leagues in Europe to only include the variables relevant to our analysis: country, player names, preferred foot, market value, player position, and age. In order to find the mean market value for left and right footed players, we must get rid of the NAs in our specific variables of interest: player_foot and player_market_value_euro and adjust the player market value units to be in thousands of euros.
+
+```{r}
+big_5_both <- big_5_valuations |> 
+  select(country, player_name, player_foot, player_market_value_euro, player_age, player_position) |> 
+  mutate(player_value = (player_market_value_euro) / 1000) |> 
+  drop_na() 
+```
+
+Also, we are not interested in the players who are listed as "both" footed. Since we must compare the mean value of left vs right footed players, ambidextrous players must be eliminated from our sample.
+
+```{r}
+big_5 <- big_5_both |>  
+  filter(player_foot == "right" | player_foot == "left")
+
+```
+
+# DESCRIPTIVE STATISTICS & DATA VISUALIZATION
+
+First, let's take a look at the distribution of the players' preferred feet across the big 5 leagues, ignoring player value for now.
+
+```{r}
+ggplot(big_5, 
+       aes(x = player_foot)) +
+  geom_bar() +
+  facet_wrap(~country) +
+  labs(x = "Player Foot",
+       y = "Count",
+       title = "Number of Left vs Right Footed Players in Big 5 European Leagues")
+```
+
+The above barplot illustrates how similar each distribution of preferred foot is across the 5 leagues, since there are at least twice as many right footed players than left footed players in each league. Therefore, we can conclude that there are roughly the same proportion of right and left footed players across these countries. The below histogram of player value across the big 5 leagues shows how each distribution is very skewed right with nearly all of the players clustered between 0 and 25000 thousand euros with a few high outliers. This allows us to assume that the country a player is in is not a confounding variable that affects the relationship between market value and preferred foot.
+
+```{r}
+ggplot(big_5, 
+       aes(x = player_value)) +
+  geom_histogram() +
+  facet_wrap(~country) +
+  labs(x = "Player Market Value",
+       y = "Count",
+       title = "Player Value across the Big 5 European Leagues")
+```
+
+\-\-\-\--
+
+Before we dive deeper, let's analyze the distribution of player market value by player age.
+
+```{r}
+ggplot(big_5, 
+       aes(x = player_age, y = player_value)) +
+  geom_jitter(alpha = 0.25, color = "blue") +
+  facet_wrap(~player_foot) +
+  theme_minimal() +
+  labs(x = "Player Age",
+       y = "Player Market Value (in thousands of euros)",
+       title = "Value of Players vs Player Age by Preferred Foot in Big 5 European Leagues")
+```
+
+```{r}
+big_5 |> 
+  group_by(player_foot) |> 
+  summarize(mean_age = mean(player_age), std_dev_age = sd(player_age), na.rm = TRUE) |> 
+  knitr::kable(digits = 3)
+```
+
+```{r}
+big_5 |> 
+  get_correlation(formula = player_value ~ player_age) |> 
+  knitr::kable(digits = 3)
+```
+
+The purpose of the above scatterplot is to show the distribution of player value acorss the different ages of players. The players that are worth the most tend to be around the same age, around 25 years old, regardless of what foot they prefer. Because the distributions of player value across all ages for left and right footed players are very similar - mean around 25 years old with a standard deviation of about 4.5 years - we can assume that the age of players is not a significant confounding variable in the relationship between player value and preferred foot. The correlation between player market value and player age of -0.017 is very close to 0 which confirms this assumption by saying that there is a very weak negative linear relationship between player value and player age. Although players tend to have a slightly lower market value as they get older, when seeing if players tend to be worth the same amount depending on what foot they prefer, we can ignore what age they are for the purpose of this analysis.
+
+\-\-\-\--
+
+Next, let's display the distribution of player market value by preferred foot in our sample of the big 5 European leagues.
+
+```{r}
+ggplot(big_5, 
+       mapping = aes(x = player_value)) +
+  geom_histogram(bins = 25, color = "black") +
+  facet_wrap(~player_foot) +
+  theme_minimal() +
+  labs(x = "Player Market Value (in thousands of euros)",
+       y = "Count",
+       title = "Value of Players by Preferred Foot in Big 5 European Leagues")
+```
+
+Since we already established that there are far more right footed players than left across these 5 countries, we can ignore the difference in count between the 2 graphs and only focus on the shape of the distribution. It makes sense that both of the above distributions of player value are skewed right with the majority of players worth between 0 and 25,000 thousand euros because only the best, standout players are worth more than 50,000 thousand euros. There appears to be high outliers for both left and right footed players.
+
+```{r}
+ggplot(big_5, 
+       aes(x = player_foot, y = player_value)) +
+  geom_boxplot() +
+  coord_flip() + 
+  theme_minimal() +
+  labs(x = "Player Foot",
+       y = "Player Market Value (in thousands of euros)",
+       title = "Value of Players by Preferred Foot in Big 5 European Leagues")
+```
+
+```{r}
+big_5 |> 
+  group_by(player_foot) |> 
+  summarize(mean_value = mean(player_value), std_dev_value = sd(player_value), na.rm = TRUE) |>
+  knitr::kable(digits = 3)
+  
+```
+
+The above boxplot also shows the distribution of player value by preferred foot for all players in the big 5 leagues, just like the histogram. At first glance, the above boxplot shows similar results - the distribution of player value between left and right footed players for all players across the big 5 leagues has roughly the same mean (8279.79 thousand euros for left footed players and 8088.686 for right footed players) and roughly the same standard deviation (13613.67 for left footed players and 13644.50 for right footed players). However, we can begin to see in the boxplot that the mean of the distribution of player market value for lefties is slightly higher than the mean for righties in our sample, but is this difference statistically significant so we can generalize it to the entire world?
+
+And if you were wondering, the high outlier for right footed players is Kylian Mbappe with a market value of 160,000 thousand euros.
+
+```{r}
+obs_left_mean <- big_5 |> 
+  filter(player_foot == "left") |>
+  summarize(mean = mean(player_value)) 
+
+
+obs_right_mean <- big_5 |> 
+  filter(player_foot == "right") |> 
+  summarize(mean = mean(player_value)) 
+
+```
+
+In our sample of 3395 players across the big 5 European leagues, our observed mean market player for lefties is 8279.79 thousand euros, and 8088.686 thousand euros for righties. Therefore, our observed difference in mean market value (left-right) is 8279.79-8088.686 = 191.103 thousand euros.
+
+# DATA ANALYSIS & MODELS
+
+For our analysis, we will first perform a permutation hypothesis test. Our null hypothesis is that left footed players have a mean market value that is equal to or less than the mean market value for right footed players around the world. The alternative hypothesis is that the mean market value for lefties is greater than the mean market value for righties around the world.
+
+```{r}
+# hypothesized world of no difference between left and right footed players
+set.seed(11)
+
+null_permute_test <- big_5 |> 
+  specify(formula = player_value ~ player_foot) |> 
+  hypothesize(null = "independence") |>  
+  generate(reps = 1000, type = "permute") |>  
+  calculate(stat = "diff in means", order = c("left", "right")) 
+  
+
+obs_permute_test <- big_5 |> 
+  specify(formula = player_value ~ player_foot) |> 
+  calculate(stat = "diff in means", order = c("left", "right")) 
+
+
+visualize(null_permute_test, bins = 15) +
+  labs(x = "Difference in Mean Market Value (left-right)",
+       y = "Count",
+       title = "Null Sampling Distribution - simulated difference in mean market value (L-R)")
+```
+
+Above is a simulated sampling distribution of the difference in mean market value (left-right) assuming that the null hypothesis is true.
+
+The final step is to measure how surprised we are by our observed difference (191.1031 thousand euros) between the mean market value of left footed players and the mean market value of right footed players, assuming we are in a hypothesized world where a player's preferred foot has no influence on their market value; in other words, preferred foot and player market value are independent. If the observed difference of 191.1031 thousand euros is highly unlikely under this assumption, then we would be inclined to reject the null hypothesis.
+
+```{r}
+set.seed(11)
+
+visualize(null_permute_test, bins = 15) +
+  shade_p_value(obs_stat = obs_permute_test, direction = "right") +
+  labs(x = "Difference in Mean Market Value (left-right)",
+       y = "Count",
+       title = "Null Sampling Distribution - distribution of simulated difference in means (L-R)")
+
+null_permute_test |> 
+  get_p_value(obs_stat = obs_permute_test, direction = "right") |> 
+  knitr::kable(digits = 3)
+```
+
+```{r}
+set.seed(11)
+
+bootstrap_distribution <- big_5 |> 
+  specify(formula = player_value ~ player_foot) |>  
+  generate(reps = 1000, type = "bootstrap") |> 
+  calculate(stat = "diff in means", order = c("left", "right"))
+
+percentile_ci <- bootstrap_distribution |> 
+  get_confidence_interval(level = 0.95, type = "percentile") 
+
+visualize(bootstrap_distribution) + 
+  shade_confidence_interval(endpoints = percentile_ci) +
+  shade_p_value(obs_stat = obs_permute_test, direction = "right") +
+    labs(x = "Difference in Mean Market Value (left-right)",
+       y = "Count",
+       title = "Null Sampling Distribution - distribution of simulated difference in means (L-R)")
+
+percentile_ci |> 
+  knitr::kable(digits = 3)
+```
+
+After adding the observed difference value of 191.103 thousand euros to the above simulated null sampling distributions, we can see that the probability of getting an observed difference as extreme of more extreme as 191.103 assuming the null hypothesis is true is 0.349, much greater than 0.05. Therefore, we fail to reject the null hypothesis and do not have sufficient evidence that the mean market value for lefties is greater than the mean market value for righties around the world.
+
+After constructing a 95% confidence interval for the true difference (left-right) in mean market value, we can see that our observed difference of 191.103 falls within this interval from (-818.463, 1181.137). Therefore, just like with our hypothesis test, we do not have convincing evidence to reject the null hypothesis.
+
+\-\-\-\--
+
+To finish off our analysis we will perform a linear regression model for the relationship between the explanatory variable of player foot and the response variable of the logarithm of player market value in thousands of euros. We are using the logarithm instead of raw numbers in order to compare the predicted percent change in market value instead of the total change in market value.
+
+```{r}
+model1 <- lm(log(player_value) ~ player_foot, 
+             data = big_5) 
+  
+  
+regression_table <- get_regression_table(model1) 
+
+regression_table |> 
+  knitr::kable(digits = 3)
+
+```
+
+The table above shows the results of our linear regression. We can represent our results with this line:
+
+logarithmic predicted market value = 7.889 - 0.054(right footed)
+
+To interpret this line, our model predicts that a player that is right footed is expected to have a market value that is 0.054% lower than if they were left footed. The intercept of 7.889 is the logarithmic predicted market value for left footed players, and 0.054 is the predicted slope or percent decrease in market value if a player is right footed.
+
+However, when we take a look at the confidence bounds to the right of the table, we can see that the slope has a confidence interval of (-0.183, 0.075). Since we are 95% confident that the true slope (decrease in logarithmic market value for right footed players) is within this interval, and 0 falls within this interval, 0 is a plausible value for the slope. The interval contains both positive and negative values. This means that we cannot conclude that the true slope is either positive or negative and, in context, that left footed players are expected to have a higher or lower market value compared to right footed players.
+
+\-\-\-\--
+
+# CONCLUSION
+
+To summarize our results, our sample of all 3395 players in the big 5 leagues in Europe yielded an observed difference between the mean market value for left footed players and the mean market value for right footed players of 191.103 thousand euros. We ran a permutation hypothesis test as well as a 95% confidence interval for the true difference in mean market value between lefties and rights around the world. Our p-value of 0.349 was higher than our alpha value of 0.05 so we failed to reject the null hypothesis in favor of the alternative hypothesis that left footed players have a higher mean market value than right footed players.
+
+Similarly, our observed difference of 191.103 thousand euros fell within the 95% confidence interval from (-818.4628, 1181.137), so our sample failed to produce a difference extreme enough to represent statistical evidence that left footed playes are worth more on average than right footed players.
+
+Finally, we ran a linear regression model to calculate our sample slope of the percent difference in market value between left and right footed players to be 0.054. However, when interpretting the confidence interval in our regression analysis for the true slope, we realized that the interval contains both positive and negative values. To specifically interpret our interval, we are 95% confident that left footed players have between 0.183% more to 0.075% less market value than right footed players on average. Because 0 is within this interval, once again we cannot conclude that left footed players have a higher mean market value than right footed players.
+
+# FURTHER ANALYSIS
+
+Possible confounding variables in this study may include player age, country, and player position. We already showed that player age and country have little to no influence on player market value for both left and right footed players (see DESCRIPTIVE STATISTICS & DATA VISUALIZATION section). Let's take a look at the market value of players of each foot by player position.
+
+```{r}
+ggplot(big_5, 
+       aes(x = player_foot, y = player_value)) +
+  geom_boxplot() +
+  facet_wrap(~player_position) +
+    coord_flip() + 
+  theme_minimal() +
+  labs(x = "Preferred Foot",
+       y = "Player Value (in thousands of euros)",
+       title = "Value of Players vs Preferred Foot by Position")
+```
+
+The above boxplots displays some interesting data. For certain positions, namely Goalkeeper, Left Midfield, and Right Winger, Attacking Midfield, and Second Striker, left footed players appear to have a higher market value than right footed players in our sample. This makes sense because Left Backs/Midfielders are typically required to be left footed along with Right Wingers who are often expected to dribble towards the middle of the field onto their stronger left foot. All the other positions have right-footed players earning either a higher or similar market value compared to lefties, but some positions seem to have barely any left footed players compared to righties, like Right-Back and Right-Midfield. The distribution of player value across for lefties and righties are very different for each position, which provides a warning that player position might be a possible confounding variable in the relationship between player market value and preferred foot that may need to be analyzed further.
+
+Citations:
+
+\[\^1\]: <https://heimduo.org/what-does-it-mean-if-your-right-handed-but-left-footed/#:~:text=Most%20people%20are%20right-footed.%20According%20to%20the%20newest,right-footers%2C%208.2%20percent%20left-footers%2C%20and%2030.2%20percent%20mixed-footers.>
